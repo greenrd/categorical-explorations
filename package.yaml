@@ -1,0 +1,27 @@
+name:    categorical-explorations
+version: 0.1.0.0
+license: BSD-3-Clause
+author:              "Robin Green"
+maintainer:          "greenrd@greenrd.org"
+copyright:           "2026 Robin Green"
+language:            GHC2021
+
+description: Playing with Subfunctors in Haskell
+
+dependencies:
+- base >= 4.19.2 && < 5
+- lens
+- natural-transformation >= 0.4.1 && < 0.5
+
+ghc-options:
+- -Wcompat
+- -Widentities
+- -Wincomplete-record-updates
+- -Wincomplete-uni-patterns
+- -Wmissing-export-lists
+- -Wmissing-home-modules
+- -Wpartial-fields
+- -Wredundant-constraints
+
+library:
+  source-dirs: src

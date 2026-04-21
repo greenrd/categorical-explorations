@@ -1,0 +1,30 @@
+cabal-version: 2.2
+
+-- This file has been generated from package.yaml by hpack version 0.37.0.
+--
+-- see: https://github.com/sol/hpack
+
+name:           categorical-explorations
+version:        0.1.0.0
+description:    Playing with Subfunctors in Haskell
+author:         Robin Green
+maintainer:     greenrd@greenrd.org
+copyright:      2026 Robin Green
+license:        BSD-3-Clause
+build-type:     Simple
+
+library
+  exposed-modules:
+      Subfunctor
+  other-modules:
+      Paths_categorical_explorations
+  autogen-modules:
+      Paths_categorical_explorations
+  hs-source-dirs:
+      src
+  ghc-options: -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      base >=4.19.2 && <5
+    , lens
+    , natural-transformation >=0.4.1 && <0.5
+  default-language: GHC2021

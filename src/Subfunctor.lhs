@@ -19,7 +19,7 @@ A Subfunctor g of f in Haskell
 is exhibited by a natural transformation "promote"
 
 > class (Functor f, Functor g) => Subfunctor f g where
->     promote :: f :~> g
+>     promote :: f ~> g
 
 from f to g that is injective (i.e. it is lossless - it does not throw away any information - all the original data can always be reconstructed).
 
@@ -28,13 +28,13 @@ There is a Functor Category (already defined in Control.Natural), whose objects 
 The identity morphism in this category is obviously lossless, so it gives rise to a subfunctor relationship between every functor and itself:
 
 > instance Functor f => Subfunctor f f where
->     promote = C.id
+>     promote = unwrapNT $ C.id @(:~>)
 
 And composing two lossless natural transformations obviously forms a natural transformation that is itself lossless,
 so the subfunctor relationship is transitive, as one would intuitively expect:
 
 > instance {-# INCOHERENT #-} (Functor f, Functor h, Subfunctor f g, Subfunctor g h) => Subfunctor f h where
->     promote = promote @g @h C.. promote @f @g
+>     promote = (NT (promote @g @h) C.. NT (promote @f @g) #)
 
 So we can form a wide subcategory of the Functor Category, which I will call the Subfunctor Category.
 
@@ -45,7 +45,7 @@ The initial object in both categories is:
 It is initial because it is a subfunctor of every functor as exhibited by the unique natural transformation:
 
 > instance Functor g => Subfunctor InitialFunctor g where
->     promote = NT $ absurd . getConst
+>     promote = absurd . getConst
 
 This natural transformation is necessarily unique because its input argument cannot exist, so it has an empty range,
 so it cannot have different outputs:
@@ -56,14 +56,14 @@ so it cannot have different outputs:
 Products are category-theoretic products in the Subfunctor Category:
 
 > instance (Functor y, Functor x1, Functor x2, Subfunctor y x1, Subfunctor y x2) => Subfunctor y (Product x1 x2) where
->     promote = NT $ \y -> Pair (promote # y) (promote # y)
+>     promote y = Pair (promote y) (promote y)
 
   # Examples
 
 There is only one such natural transformation making Identity a subfunctor of Maybe:
 
 > instance Subfunctor Identity Maybe where
->     promote = NT $ pure . runIdentity
+>     promote = pure . runIdentity
 
 The empty box
 
@@ -72,12 +72,12 @@ The empty box
 is also a subfunctor of Maybe:
 
 > instance Subfunctor EmptyBox Maybe where
->     promote = NT $ const Nothing
+>     promote = const Nothing
 
 Identity also has a natural transformation making it a subfunctor of NonEmpty:
 
 > instance Subfunctor Identity NonEmpty where
->     promote = NT $ pure . runIdentity
+>     promote = pure . runIdentity
 
 But there are also an infinite number of alternative such natural transformations:
 
@@ -95,7 +95,7 @@ But there are also an infinite number of alternative such natural transformation
 > withDuplicatesNE n = NT $ mapTail (first n) . NE.cycle
 
 > genSfIdentityNE :: Natural -> Identity :~> NonEmpty
-> genSfIdentityNE n = withDuplicatesNE n C.. promote
+> genSfIdentityNE n = withDuplicatesNE n C.. NT promote
 
 If we define:
 
@@ -115,7 +115,7 @@ In the Functor Category, headNT is a morphism and is a retraction of genSfIdenti
 Similarly, Maybe has a natural transformation making it a subfunctor of the list functor:
 
 > instance Subfunctor Maybe [] where
->    promote = NT $ maybe [] pure
+>    promote = maybe [] pure
 
 And again, there are also an infinite number of alternatives:
 
@@ -123,4 +123,4 @@ And again, there are also an infinite number of alternatives:
 > withDuplicates n = NT $ first (n + 1) . cycle
 
 > genSfMaybeList :: Natural -> Maybe :~> []
-> genSfMaybeList n = withDuplicates n C.. promote
+> genSfMaybeList n = withDuplicates n C.. NT promote

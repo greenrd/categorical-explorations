@@ -1,0 +1,32 @@
+digraph MyGraph {
+    // Node (vertex) declarations (optional, but useful for attributes)
+    EitherUnit [label="Either ()"]
+    Function [label="(->) b"]
+    UnitFunction [label="(->) ()"]
+    VoidFunction [label="(->) Void"]
+    EnumFunction [label="Enum e => (->) e"]
+    //C [label="Node C"]
+
+    // Edges (use -> for directed graphs)
+    InitialFunctor -> Identity
+    InitialFunctor -> EmptyBox
+    Identity -> Maybe
+    EmptyBox -> VoidFunction
+    VoidFunction -> EmptyBox
+    EmptyBox -> Maybe
+    Identity -> NonEmpty
+    Maybe -> List
+    NonEmpty -> List
+    Identity -> Pair
+    Identity -> Function
+    Identity -> UnitFunction
+    UnitFunction -> Identity
+    Maybe -> EitherUnit
+    EitherUnit -> Maybe
+    Pair -> Discriminator
+    EnumFunction -> List
+    List -> EnumFunction
+    List -> Mealy a
+    // Edge with attributes
+    //A -> B [label="edge label", color=red, style=dashed]
+}

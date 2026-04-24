@@ -1,6 +1,3 @@
-> {-# LANGUAGE UndecidableInstances #-}
-> {-# LANGUAGE AllowAmbiguousTypes #-}
-
 A Subfunctor g of f in Haskell
 
 > module Subfunctor (Subfunctor(..)) where
@@ -28,6 +25,14 @@ is exhibited by a natural transformation "promote"
 
 from f to g that is injective (i.e. it is lossless - it does not throw away any information - all the original data can always be reconstructed).
 
+> class Injective a b where
+>     inj :: a -> b
+>     ret :: b -> a
+
+> instance Subfunctor f g => Injective (f a) (g a) where
+>     inj = promote
+>     ret = retract
+
 There is a Functor Category (already defined in Control.Natural), whose objects are Functors, and whose morphisms are Natural Transformations.
 
 The identity morphism in this category is obviously lossless, so it gives rise to a subfunctor relationship between every functor and itself:
@@ -36,12 +41,7 @@ The identity morphism in this category is obviously lossless, so it gives rise t
 >     promote = unwrapNT $ C.id @(:~>)
 >     retract = unwrapNT $ C.id @(:~>)
 
-And composing two lossless natural transformations obviously forms a natural transformation that is itself lossless,
-so the subfunctor relationship is transitive, as one would intuitively expect:
-
-> instance {-# INCOHERENT #-} (Functor f, Functor h, Subfunctor f g, Subfunctor g h) => Subfunctor f h where
->     promote = (NT (promote @g @h) C.. NT promote #)
->     retract = (NT (retract @f @g) C.. NT (retract @g @h) #)
+Refer to Transitive.lhs for details of composition.
 
 So we can form a wide subcategory of the Functor Category, which I will call the Subfunctor Category.
 
@@ -222,7 +222,28 @@ What about composition of functors in general?
 >     promote x = Compose $ fmap (promote @h @g . pure) $ promote x
 >     retract (Compose c) = join . retract $ fmap (retract @h @g) c
 
-This works because each step is injective, and fmap can't throw away data or that would break the first fmap law (fmap id == id).
+Theorem: (retract . promote) x = x
+Proof:
+
+By expansion
+
+((\\(Compose c) -> join . retract DOLLAR fmap (retract @h g) c) . (\y -> Compose $ fmap (promote @h @g . pure) $ promote y)) x = x
+
+By substitution
+
+(\\c -> join . retract . fmap (retract @h g) . fmap (promote @h @g . pure) DOLLAR promote x) = x
+
+By fmap law
+
+(\\c -> join . retract . fmap (retract @h g . promote @h @g . pure) DOLLAR promote x) = x
+
+By promote law
+
+(\\c -> join . retract . fmap pure DOLLAR promote x) = x
+
+OK, I'm stuck at this point - I don't think I can prove this.
+
+The promote function works because each step is injective, and fmap can't throw away data or that would break the first fmap law (fmap id == id).
 fmap can't "look inside" an arbitrary function in Haskell, it has to behave the same for all functions.
 (This is a key distinction between Haskell and many other languages such as Scala!)
 

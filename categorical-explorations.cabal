@@ -15,7 +15,9 @@ build-type:     Simple
 
 library
   exposed-modules:
+      Machines
       Subfunctor
+      Transitive
   other-modules:
       Paths_categorical_explorations
   autogen-modules:

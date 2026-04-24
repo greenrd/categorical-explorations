@@ -7,6 +7,7 @@ A Subfunctor g of f in Haskell
 
 > import qualified Control.Category as C (Category(..))
 > import Control.Lens.Iso (Iso', iso, under)
+> import Control.Monad (join)
 > import Control.Natural
 > import Data.Functor.Compose
 > import Data.Functor.Const (Const(..), getConst)
@@ -23,6 +24,7 @@ is exhibited by a natural transformation "promote"
 
 > class (Functor f, Functor g) => Subfunctor f g where
 >     promote :: f ~> g
+>     retract :: g ~> f
 
 from f to g that is injective (i.e. it is lossless - it does not throw away any information - all the original data can always be reconstructed).
 
@@ -32,12 +34,14 @@ The identity morphism in this category is obviously lossless, so it gives rise t
 
 > instance Functor f => Subfunctor f f where
 >     promote = unwrapNT $ C.id @(:~>)
+>     retract = unwrapNT $ C.id @(:~>)
 
 And composing two lossless natural transformations obviously forms a natural transformation that is itself lossless,
 so the subfunctor relationship is transitive, as one would intuitively expect:
 
 > instance {-# INCOHERENT #-} (Functor f, Functor h, Subfunctor f g, Subfunctor g h) => Subfunctor f h where
 >     promote = (NT (promote @g @h) C.. NT promote #)
+>     retract = (NT (retract @f @g) C.. NT (retract @g @h) #)
 
 So we can form a wide subcategory of the Functor Category, which I will call the Subfunctor Category.
 
@@ -49,6 +53,7 @@ It is initial because it is a subfunctor of every functor as exhibited by the un
 
 > instance Functor g => Subfunctor InitialFunctor g where
 >     promote = absurd . getConst
+>     retract = const undefined
 
 This natural transformation is necessarily unique because its input argument cannot exist, so it has an empty range,
 so it cannot have different outputs:
@@ -60,52 +65,27 @@ Products are category-theoretic products in the Subfunctor Category:
 
 > instance (Functor y, Functor x1, Functor x2, Subfunctor y x1, Subfunctor y x2) => Subfunctor y (Product x1 x2) where
 >     promote y = Pair (promote y) (promote y)
+>     retract (Pair z _) = retract z
 
   # Examples
 
-Identity is a Subfunctor of any Applicative:
+Identity is a Subfunctor of any Applicative, e.g.:
 
-> instance Applicative f => Subfunctor Identity f where
+> instance Subfunctor Identity Maybe where
 >     promote = pure . runIdentity
+>     retract = Identity . maybe undefined id
 
-The empty box
+> instance Subfunctor Identity ((->) b) where
+>     promote = pure . runIdentity
+>     retract = Identity . ($ undefined)
 
-> type EmptyBox = Const ()
+> instance Monoid c => Subfunctor Identity ((,) c) where
+>     promote = pure . runIdentity
+>     retract = Identity . snd
 
-is also a subfunctor of Maybe:
-
-> instance Subfunctor EmptyBox Maybe where
->     promote = const Nothing
-
-and a subfunctor of Void-valued functions:
-
-> instance Subfunctor EmptyBox ((->) Void) where
->     promote = const absurd
-
-This natural transformation is actually a natural isomorphism because we can go both ways:
-
-> instance Subfunctor ((->) Void) EmptyBox where
->     promote = const $ Const ()
-
-Similarly, in the special case of unit-valued functions, Identity is isomorphic to them:
-
-> instance Subfunctor ((->) ()) Identity where
->     promote f = pure $ f ()
-
-Enum-valued functions are isomorphic to lists:
-
-> instance Enum e => Subfunctor ((->) e) [] where
->     promote f = map f [(toEnum 0)..]
-
-> instance Enum e => Subfunctor [] ((->) e) where
->     promote xs = (xs !!) . fromEnum
-
-Identity has a natural transformation making it a subfunctor of NonEmpty:
-
-instance Subfunctor Identity NonEmpty where
-    promote = pure . runIdentity
-
-(this is a special case of the Applicative instance above.)
+> instance Subfunctor Identity NonEmpty where
+>     promote = pure . runIdentity
+>     retract = Identity . NE.head
 
 But there are also an infinite number of alternative such natural transformations:
 
@@ -140,10 +120,52 @@ then all of those natural transformations are equal to each other under the foll
 
 In the Functor Category, headNT is a morphism and is a retraction of genSfIdentityNE n for all n
 
+The empty box
+
+> type EmptyBox = Const ()
+
+is also a subfunctor of Maybe:
+
+> instance Subfunctor EmptyBox Maybe where
+>     promote = const Nothing
+>     retract = const $ Const ()
+
+and a subfunctor of Void-valued functions:
+
+> instance Subfunctor EmptyBox ((->) Void) where
+>     promote = const absurd
+>     retract = const $ Const ()
+
+This natural transformation is actually a natural isomorphism because we can go both ways:
+
+> instance Subfunctor ((->) Void) EmptyBox where
+>     promote = const $ Const ()
+>     retract = const absurd
+
+Similarly, in the special case of unit-valued functions, Identity is isomorphic to them:
+
+> instance Subfunctor ((->) ()) Identity where
+>     promote f = pure $ f ()
+>     retract = const . runIdentity
+
+Enum-valued functions are isomorphic to lists:
+
+> instance Enum e => Subfunctor ((->) e) [] where
+>     promote f = map f [(toEnum 0)..]
+>     retract xs = (xs !!) . fromEnum
+
+> instance Enum e => Subfunctor [] ((->) e) where
+>     promote xs = (xs !!) . fromEnum
+>     retract f = map f [(toEnum 0)..]
+
 Similarly, Maybe has a natural transformation making it a subfunctor of the list functor:
+
+> safeHead (h:t) = Just h
+> safeHead []    = Nothing
 
 > instance Subfunctor Maybe [] where
 >    promote = maybe [] pure
+>    retract = safeHead
 
 And again, there are also an infinite number of alternatives:
 
@@ -157,6 +179,7 @@ NonEmpty can also be promoted to list:
 
 > instance Subfunctor NonEmpty [] where
 >     promote = NE.toList
+>     retract = NE.fromList
 
 There are also an infinite number of alternatives here:
 
@@ -170,12 +193,15 @@ Maybe can be promoted to Either ():
 
 > instance Subfunctor Maybe (Either ()) where
 >     promote = maybe (Left ()) Right
+>     retract (Left ()) = Nothing
+>     retract (Right x) = Just x
 
 This natural transformation is actually a natural isomorphism because we can go both ways:
 
 > instance Subfunctor (Either ()) Maybe where
 >     promote (Left ()) = Nothing
 >     promote (Right x) = Just x
+>     retract = maybe (Left ()) Right
 
 > eitherMaybeIso :: Iso' (Maybe a) (Either () a)
 > eitherMaybeIso = iso promote promote
@@ -188,18 +214,13 @@ Let's write down the simplest approach:
 
 > instance Subfunctor ((,) c) (Discriminator c) where
 >     promote (x, y) = Compose $ \b -> if b then Left x else Right y
-
-This natural transformation is actually a natural isomorphism because we can go both ways:
-
-instance Subfunctor (Discriminator c) ((,) c) where
-    promote (Compose f) = (f True, f False)
-
-Oops, this doesn't work - we would need dependent types for it to work, but Haskell doesn't have dependent types!
+>     retract (Compose f) = (either id (const undefined) $ f True, either (const undefined) id $ f False)
 
 What about composition of functors in general?
 
-> instance (Applicative h, Subfunctor h f, Subfunctor h g) => Subfunctor h (Compose f g) where
+> instance (Monad h, Subfunctor h f, Subfunctor h g) => Subfunctor h (Compose f g) where
 >     promote x = Compose $ fmap (promote @h @g . pure) $ promote x
+>     retract (Compose c) = join . retract $ fmap (retract @h @g) c
 
 This works because each step is injective, and fmap can't throw away data or that would break the first fmap law (fmap id == id).
 fmap can't "look inside" an arbitrary function in Haskell, it has to behave the same for all functions.
@@ -227,17 +248,23 @@ We could also pick something richer than Bool for the domain of the function, e.
 
 > class Distinguishable d where
 >     distinguish :: d -> Bool
+>     falseValue :: d
+>     trueValue :: d
 
 Law for Distinguishable: there must exist at least one value for which distinguish returns True and at least one value for which it returns False
 
 > instance Distinguishable Bool where
 >     distinguish = id
+>     trueValue = True
+>     falseValue = False
 
 > instance Distinguishable Ternary where
 >     distinguish = isJust
+>     trueValue = Just True
+>     falseValue = Nothing
 
 > type ExtravagantDiscriminator c d = Compose ((->) d) (Either c)
 
 > instance Distinguishable d => Subfunctor ((,) c) (ExtravagantDiscriminator c d) where
 >     promote (x, y) = Compose $ \d -> if distinguish d then Left x else Right y
-
+>     retract (Compose f) = (either id (const undefined) $ f trueValue, either (const undefined) id $ f falseValue)

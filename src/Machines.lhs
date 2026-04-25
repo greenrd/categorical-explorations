@@ -1,65 +1,61 @@
 > module Machines () where
 
 > import Data.Functor.Compose
+> import Data.List.Infinite (Infinite(..))
 > import Data.List.NonEmpty (fromList, NonEmpty(..))
 > import qualified Data.List.NonEmpty as NE
+> import Data.Machine.Mealy (Mealy(..))
 > import Numeric.Natural (Natural)
 > import Subfunctor
 
-From the machines package:
+We can promote non-empty lists to infinite lists:
 
-> newtype Mealy a b = Mealy { runMealy :: a -> (b, Mealy a b) }
-
-> instance Functor (Mealy a) where
->  fmap f (Mealy m) = Mealy $ \a -> case m a of
->    (b, n) -> (f b, fmap f n)
->  {-# INLINE fmap #-}
->  b <$ _ = pure b
->  {-# INLINE (<$) #-}
-
-> instance Applicative (Mealy a) where
->  pure b = r where r = Mealy (const (b, r))
->  {-# INLINE pure #-}
->  Mealy m <*> Mealy n = Mealy $ \a -> case m a of
->    (f, m') -> case n a of
->       (b, n') -> (f b, m' <*> n')
->  m <* _ = m
->  {-# INLINE (<*) #-}
->  _ *> n = n
->  {-# INLINE (*>) #-}
-
-Let's also define an infinite list type:
-
-> data InfList a = InfList a (InfList a)
-
-> instance Functor InfList where
->    fmap f (InfList x xs) = InfList (f x) $ fmap f xs
-
-> nonEmptyToInfiniteList :: NonEmpty a -> InfList a
+> nonEmptyToInfiniteList :: NonEmpty a -> Infinite a
 > nonEmptyToInfiniteList = impl . NE.cycle
 >     where
->         impl :: NonEmpty a -> InfList a
->         impl xs = InfList (NE.head xs) $ impl . NE.fromList $ NE.tail xs
+>         impl :: NonEmpty a -> Infinite a
+>         impl xs = NE.head xs :< (impl . NE.fromList $ NE.tail xs)
 
-> type InfListAndNat = Compose ((,) Natural) InfList
+But this is lossy because although we don't lose any data from inside the non-empty list, we lose information
+about the list's structure which is necessary to retain for a retract function to be able to work - namely,
+its length.
+
+So let's instead declare a type synonym InfListAndNat:
+
+> type InfListAndNat = Compose ((,) Natural) Infinite
 
 > natLength :: NonEmpty a -> Natural
 > natLength (x :| xs) = 1 + fromIntegral (length xs)
 
-> takeInf :: Natural -> InfList a -> NonEmpty a
-> takeInf 1 (InfList x _) = x :| []
-> takeInf n (InfList x xs) = x :| NE.toList (takeInf (n - 1) xs)
+> takeInf :: Natural -> Infinite a -> NonEmpty a
+> takeInf 1 (x :< _ ) = x :| []
+> takeInf n (x :< xs) = x :| NE.toList (takeInf (n - 1) xs)
+
+And now we can declare the subfunctor relationship:
 
 > instance Subfunctor NonEmpty InfListAndNat where
 >     promote xs = Compose (natLength xs, nonEmptyToInfiniteList xs)
 >     retract (Compose (n, il)) = takeInf n il
 
-> instance Subfunctor InfList (Mealy b) where
->     promote (InfList x xs) = Mealy . const $ (x, promote xs)
->     retract (Mealy f) = let (x, xs) = f undefined in InfList x $ retract xs
+Infinite is a subfunctor of a Mealy machine - we don't need the length to come along for the ride for this one:
 
-Here's another opportunity to play with composition of functors:
+> instance Subfunctor Infinite (Mealy b) where
+>     promote (x :< xs) = Mealy . const $ (x, promote xs)
+>     retract (Mealy f) = let (x, xs) = f undefined in x :< retract xs
+
+But in order to have a subfunctor relationship between NonEmpty and Mealy - my original goal - we would again
+need to compose in the length, so that we could chain together the aboe two relationships.
+
+For this, I see another opportunity to code a general solution!
+
+And it's also another opportunity to play with composition of functors:
 
 > instance (Functor f, Subfunctor g h) => Subfunctor (Compose f g) (Compose f h) where
 >     promote = Compose . fmap promote . getCompose
 >     retract = Compose . fmap retract . getCompose
+
+If we set f to ((,) Natural), we get what we want here, namely:
+
+instance Subfunctor InfListAndNat (Compose ((,) Natural) (Mealy b))
+
+which can then be chained together with instance Subfunctor NonEmpty InfListAndNat above, using the instance in Transitive.lhs.

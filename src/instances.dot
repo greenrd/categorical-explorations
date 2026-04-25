@@ -26,7 +26,8 @@ digraph MyGraph {
     Pair -> Discriminator
     EnumFunction -> List
     List -> EnumFunction
-    List -> Mealy a
+    NonEmpty -> InfListAndNat
+    InfListAndNat -> MealyAndNat
     // Edge with attributes
     //A -> B [label="edge label", color=red, style=dashed]
 }

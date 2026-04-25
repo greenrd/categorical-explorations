@@ -10,7 +10,9 @@ description: Playing with Subfunctors in Haskell
 
 dependencies:
 - base >= 4.19.2 && < 5
+- infinite-list >= 0.1.2 && < 0.2
 - lens
+- machines >= 0.7.4 && < 0.8
 - natural-transformation >= 0.4.1 && < 0.5
 
 ghc-options:
